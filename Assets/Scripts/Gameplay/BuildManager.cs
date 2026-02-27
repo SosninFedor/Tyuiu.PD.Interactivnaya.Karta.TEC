@@ -27,20 +27,6 @@ public class BuildManager : MonoBehaviour
         Instance = this;
     }
 
-    void AddGrassAround(Vector3 center, float radius)
-{
-    for (int i = 0; i < 20; i++)
-    {
-        Vector2 circle = Random.insideUnitCircle * radius;
-        Vector3 pos = center + new Vector3(circle.x, 0, circle.y);
-        
-        GameObject grass = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        grass.transform.position = pos;
-        grass.transform.localScale = new Vector3(0.1f, Random.Range(0.2f, 0.5f), 0.1f);
-        grass.GetComponent<Renderer>().material.color = new Color(0.2f, 0.8f, 0.1f);
-        Destroy(grass.GetComponent<Collider>());
-    }
-}
 
     void Update()
     {

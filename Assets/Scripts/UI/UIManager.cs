@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System.Collections;
 
 public class UIManager : MonoBehaviour
 {
@@ -13,12 +14,12 @@ public class UIManager : MonoBehaviour
     public GameObject panelObstacleWarning;
     
     [Header("Кнопки")]
-    public Button buttonStartMission;     // Кнопка "Приступить!" в Panel_StartScreen
-    public Button buttonStartGas;        // Кнопка "Приступить!" в Panel_GasMission
-    public Button buttonLaunchPowerPlant; // Кнопка "ЗАПУСТИТЬ ТЭЦ!" в Panel_Success
+    public Button buttonStartMission;
+    public Button buttonStartGas;
+    public Button buttonLaunchPowerPlant;
     
     [Header("Тексты")]
-    public TextMeshProUGUI warningText;  // Текст для предупреждений
+    public TextMeshProUGUI warningText;
     
     void Awake()
     {
@@ -34,17 +35,54 @@ public class UIManager : MonoBehaviour
     }
     
     void Start()
-{
-    // Настраиваем кнопки
-    buttonStartMission.onClick.AddListener(OnStartMissionClick);
-    buttonStartGas.onClick.AddListener(OnStartGasClick);
-    buttonLaunchPowerPlant.onClick.AddListener(OnLaunchPowerPlantClick);
+    {
+        buttonStartMission.onClick.AddListener(OnStartMissionClick);
+        buttonStartGas.onClick.AddListener(OnStartGasClick);
+        buttonLaunchPowerPlant.onClick.AddListener(OnLaunchPowerPlantClick);
+        
+        SetupSuccessPanelStyle();
+        ShowStartScreen();
+    }
     
-    // Начальное состояние: только стартовая панель активна
-    ShowStartScreen();
-}
+    void SetupSuccessPanelStyle()
+    {
+        if (panelSuccess == null) return;
+
+        // Фон панели — тёмно-синий с прозрачностью
+        Image panelImage = panelSuccess.GetComponent<Image>();
+        if (panelImage != null)
+            panelImage.color = new Color(0.05f, 0.08f, 0.15f, 0.97f);
+
+        // Стилизуем кнопку "ЗАПУСТИТЬ ТЭЦ!"
+        if (buttonLaunchPowerPlant != null)
+        {
+            Image btnImg = buttonLaunchPowerPlant.GetComponent<Image>();
+            if (btnImg != null)
+                btnImg.color = new Color(0.0f, 0.75f, 0.4f, 1f); // Зелёный акцент
+
+            TextMeshProUGUI btnText = buttonLaunchPowerPlant.GetComponentInChildren<TextMeshProUGUI>();
+            if (btnText != null)
+            {
+                btnText.color = Color.white;
+                btnText.fontSize = 18;
+                btnText.fontStyle = FontStyles.Bold;
+            }
+
+            // Hover эффект
+            ColorBlock colors = buttonLaunchPowerPlant.colors;
+            colors.normalColor = new Color(0.0f, 0.75f, 0.4f, 1f);
+            colors.highlightedColor = new Color(0.0f, 0.95f, 0.55f, 1f);
+            colors.pressedColor = new Color(0.0f, 0.55f, 0.3f, 1f);
+            buttonLaunchPowerPlant.colors = colors;
+        }
+
+        // Все тексты внутри панели — белые
+        foreach (TextMeshProUGUI tmp in panelSuccess.GetComponentsInChildren<TextMeshProUGUI>())
+        {
+            tmp.color = Color.white;
+        }
+    }
     
-    // Показать стартовую панель
     public void ShowStartScreen()
     {
         panelStartScreen.SetActive(true);
@@ -53,45 +91,38 @@ public class UIManager : MonoBehaviour
         panelObstacleWarning.SetActive(false);
     }
     
-    // Нажатие на "Приступить!" в стартовой панели
     void OnStartMissionClick()
     {
         panelStartScreen.SetActive(false);
         panelGasMission.SetActive(true);
-        
-        // Здесь будет перемещение камеры к газовой линии
         Debug.Log("Показываем миссию с газопроводом");
     }
     
-    // Нажатие на "Приступить!" в панели газовой миссии
     void OnStartGasClick()
-{
-    panelGasMission.SetActive(false);
-    
-    if (BuildManager.Instance != null)
     {
-        BuildManager.Instance.StartDrawingMode();
-        Debug.Log("=== РЕЖИМ РИСОВАНИЯ АКТИВИРОВАН ==="); 
+        panelGasMission.SetActive(false);
+        if (BuildManager.Instance != null)
+        {
+            BuildManager.Instance.StartDrawingMode();
+            Debug.Log("=== РЕЖИМ РИСОВАНИЯ АКТИВИРОВАН ===");
+        }
     }
-}
     
-    // Нажатие на "ЗАПУСТИТЬ ТЭЦ!"
     void OnLaunchPowerPlantClick()
-    {
-        panelSuccess.SetActive(false);
-        Debug.Log("ТЭЦ запущена!");
-        
-        // Здесь можно добавить следующую миссию
-        // Сейчас просто показываем стартовую панель
-        ShowStartScreen();
-    }
+{
+    panelSuccess.SetActive(false);
     
-    // Показать предупреждение о препятствии
+    if (PowerPlantLauncher.Instance != null)
+        PowerPlantLauncher.Instance.LaunchPowerPlant();
+    else
+        Debug.LogWarning("PowerPlantLauncher не найден! Добавь его на сцену.");
+}
+
+    
     public void ShowObstacleWarning(string message)
     {
         if (warningText != null)
             warningText.text = message;
-            
         panelObstacleWarning.SetActive(true);
         Invoke("HideObstacleWarning", 3f);
     }
@@ -101,9 +132,42 @@ public class UIManager : MonoBehaviour
         panelObstacleWarning.SetActive(false);
     }
     
-    // Показать панель успеха
     public void ShowSuccessPanel()
     {
         panelSuccess.SetActive(true);
+        StartCoroutine(AnimateSuccessPanel());
+    }
+
+    IEnumerator AnimateSuccessPanel()
+    {
+        // Плавное появление панели
+        CanvasGroup cg = panelSuccess.GetComponent<CanvasGroup>();
+        if (cg == null) cg = panelSuccess.AddComponent<CanvasGroup>();
+
+        cg.alpha = 0f;
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.deltaTime * 2f;
+            cg.alpha = Mathf.Lerp(0f, 1f, t);
+            yield return null;
+        }
+        cg.alpha = 1f;
+
+        // Пульсация кнопки
+        if (buttonLaunchPowerPlant != null)
+            StartCoroutine(PulseButton(buttonLaunchPowerPlant));
+    }
+
+    IEnumerator PulseButton(Button btn)
+    {
+        Vector3 originalScale = btn.transform.localScale;
+        while (panelSuccess.activeSelf)
+        {
+            float t = (Mathf.Sin(Time.time * 3f) + 1f) / 2f;
+            btn.transform.localScale = Vector3.Lerp(originalScale, originalScale * 1.07f, t);
+            yield return null;
+        }
+        btn.transform.localScale = originalScale;
     }
 }
