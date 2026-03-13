@@ -5,6 +5,9 @@ public class PowerPlantLauncher : MonoBehaviour
 {
     public static PowerPlantLauncher Instance;
 
+    [Header("ТЭЦ из сцены")]
+    public GameObject realPowerPlant;
+
     void Awake()
     {
         Instance = this;
@@ -19,11 +22,16 @@ public class PowerPlantLauncher : MonoBehaviour
     {
         Debug.Log("🏭 Запуск ТЭЦ...");
 
-        // Находим финальную точку ТЭЦ
-        GameObject powerPlant = GameObject.Find("Final_PowerPlant");
+        // Сначала пробуем реальный ТЭЦ из сцены
+        GameObject powerPlant = realPowerPlant;
+
+        // Если не назначен — ищем программно созданный
+        if (powerPlant == null)
+            powerPlant = GameObject.Find("Final_PowerPlant");
+
         if (powerPlant == null)
         {
-            Debug.LogWarning("Final_PowerPlant не найден!");
+            Debug.LogWarning("ТЭЦ не найден!");
             yield break;
         }
 

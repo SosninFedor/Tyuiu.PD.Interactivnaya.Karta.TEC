@@ -5,11 +5,12 @@ public class CameraController : MonoBehaviour
 {
     public static CameraController Instance;
 
-    private Vector3 posCityView = new Vector3(726f, -42f, 2882f);
-    private Vector3 rotCityView = new Vector3(10.787f, 223f, -0.3f);
-
-    private Vector3 posGasView = new Vector3(832f, 150f, 200f);
-private Vector3 rotGasView = new Vector3(30f, 0f, 0f);
+    private Vector3 posCityView = new Vector3(-30f, 614f, 841f);
+    private Vector3 rotCityView = new Vector3(17.464f, 402.284f, 0f);
+    private Vector3 posGasView = new Vector3(1661.495f, 262.9132f, 1885.103f);
+    private Vector3 rotGasView = new Vector3(18.667f, 49.847f, 0f);
+    private Vector3 posTopView = new Vector3(1260.338f, 2004.193f, 1961.617f);
+    private Vector3 rotTopView = new Vector3(78.312f, 359.654f, 0f);
 
     [Header("Настройки")]
     public float moveDuration = 2.5f;
@@ -35,9 +36,15 @@ private Vector3 rotGasView = new Vector3(30f, 0f, 0f);
             UIManager.Instance.ShowStartScreen();
     }
 
+
+    public void MoveToTopView(System.Action onComplete = null)
+    {
+    StartCoroutine(MoveTo(posTopView, rotTopView, 2f, onComplete));
+    }
+
     public void MoveToGasLine(System.Action onComplete = null)
     {
-        StartCoroutine(MoveTo(posGasView, rotGasView, moveDuration, onComplete));
+    StartCoroutine(MoveTo(posGasView, rotGasView, moveDuration, onComplete));
     }
 
     public void MoveToCityView(System.Action onComplete = null)
