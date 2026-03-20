@@ -5,8 +5,8 @@ public class CameraController : MonoBehaviour
 {
     public static CameraController Instance;
 
-    private Vector3 posCityView = new Vector3(-30f, 614f, 841f);
-    private Vector3 rotCityView = new Vector3(17.464f, 402.284f, 0f);
+    private Vector3 posCityView = new Vector3(-95.6f, 610.5f, 710.1f);
+    private Vector3 rotCityView = new Vector3(22.6f, 30.8f, 0f);
     private Vector3 posGasView = new Vector3(1661.495f, 262.9132f, 1885.103f);
     private Vector3 rotGasView = new Vector3(18.667f, 49.847f, 0f);
     private Vector3 posTopView = new Vector3(1260.338f, 2004.193f, 1961.617f);
@@ -30,10 +30,13 @@ public class CameraController : MonoBehaviour
         transform.position = posCityView;
         transform.rotation = Quaternion.Euler(rotCityView);
 
-        yield return new WaitForSeconds(3f);
+        // Задержку убрали — меню появляется сразу
+        // yield return new WaitForSeconds(3f);
 
         if (UIManager.Instance != null)
             UIManager.Instance.ShowStartScreen();
+        
+        yield return null;
     }
 
 
@@ -107,5 +110,7 @@ public class CameraController : MonoBehaviour
         transform.rotation = endRot;
 
         onComplete?.Invoke();
+
     }
+    
 }
