@@ -21,6 +21,9 @@ public class BuildManager : MonoBehaviour
     private bool isBuilding = false;
     private bool isDrawingMode = false;
 
+    public enum PipeMode { Underground, Overground }
+    public PipeMode currentPipeMode = PipeMode.Overground;
+
     void Awake()
     {
         Instance = this;
@@ -48,7 +51,6 @@ public class BuildManager : MonoBehaviour
         currentBuildingType = BuildingType.PowerPlant;
         isBuilding = true;
         CreatePreview(powerPlantPrefab);
-        Debug.Log("Режим строительства электростанции");
     }
 
     public void StartBuildingGasPipe()
@@ -56,13 +58,13 @@ public class BuildManager : MonoBehaviour
         currentBuildingType = BuildingType.GasPipe;
         isBuilding = true;
         CreatePreview(gasPipePrefab);
-        Debug.Log("Режим строительства газопровода");
     }
 
     public void StartDrawingMode()
     {
         isDrawingMode = true;
         currentBuildingType = BuildingType.GasPipe;
+        currentPipeMode = PipeMode.Overground;
 
         if (lineRenderer == null)
             lineRenderer = GetComponent<LineRenderer>();
@@ -70,60 +72,104 @@ public class BuildManager : MonoBehaviour
         if (lineRenderer != null)
         {
             lineRenderer.positionCount = 0;
-            lineRenderer.startColor = new Color(0.4f, 0.2f, 0.1f);
-            lineRenderer.endColor = new Color(0.4f, 0.2f, 0.1f);
             lineRenderer.startWidth = 10f;
             lineRenderer.endWidth = 10f;
             lineRenderer.numCornerVertices = 5;
             lineRenderer.numCapVertices = 5;
             lineRenderer.enabled = true;
+            UpdateLineStyle();
         }
+
+        if (UIManager.Instance != null)
+            UIManager.Instance.ShowPipeModeButtons();
 
         Debug.Log("РЕЖИМ РИСОВАНИЯ: Нажмите ЛКМ чтобы рисовать, ПРОБЕЛ для завершения");
     }
 
-   void UpdateDrawingMode()
-{
-    if (!isDrawingMode) return;
-    if (lineRenderer == null) return;
-
-    lineRenderer.enabled = true;
-
-    if (Input.GetMouseButton(0) && !EventSystem.current.IsPointerOverGameObject())
+    public void SetPipeMode(PipeMode mode)
     {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        
-        // Используем Physics.Raycast чтобы попасть прямо в террейн
-        RaycastHit hit;
-        if (Physics.Raycast(ray, out hit))
-        {
-            Vector3 worldPos = hit.point;
-            worldPos.y = hit.point.y + 0.5f; // чуть выше поверхности чтобы труба не уходила в землю
+        currentPipeMode = mode;
+        UpdateLineStyle();
+        Debug.Log($"Режим прокладки: {mode}");
+    }
 
-            if (Input.GetMouseButtonDown(0))
+    void UpdateLineStyle()
+    {
+        if (lineRenderer == null) return;
+
+        if (currentPipeMode == PipeMode.Overground)
+        {
+            lineRenderer.startColor = new Color(0.4f, 0.2f, 0.1f);
+            lineRenderer.endColor = new Color(0.4f, 0.2f, 0.1f);
+            lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        }
+        else
+        {
+            lineRenderer.startColor = new Color(0.5f, 0.5f, 0.5f);
+            lineRenderer.endColor = new Color(0.5f, 0.5f, 0.5f);
+
+            Material dashedMat = new Material(Shader.Find("Sprites/Default"));
+            Texture2D tex = new Texture2D(2, 1);
+            tex.SetPixel(0, 0, Color.white);
+            tex.SetPixel(1, 0, Color.clear);
+            tex.Apply();
+            tex.wrapMode = TextureWrapMode.Repeat;
+            dashedMat.mainTexture = tex;
+            dashedMat.mainTextureScale = new Vector2(5f, 1f);
+            lineRenderer.material = dashedMat;
+        }
+    }
+
+    void UpdateDrawingMode()
+    {
+        if (!isDrawingMode) return;
+        if (lineRenderer == null) return;
+
+        lineRenderer.enabled = true;
+
+        if (Input.GetMouseButton(0) && !EventSystem.current.IsPointerOverGameObject())
+        {
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+            if (Physics.Raycast(ray, out hit))
             {
-                lineRenderer.positionCount = 0;
-                lineRenderer.positionCount = 1;
-                lineRenderer.SetPosition(0, worldPos);
-            }
-            else
-            {
-                if (lineRenderer.positionCount > 0)
+                Vector3 worldPos = hit.point;
+                worldPos.y = hit.point.y + 0.5f;
+
+                // Проверяем реку — принудительно подземный
+                if (hit.collider.CompareTag("River") && currentPipeMode == PipeMode.Overground)
                 {
-                    Vector3 lastPos = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
-                    if (Vector3.Distance(worldPos, lastPos) > 10f)
+                    SetPipeMode(PipeMode.Underground);
+                if (UIManager.Instance != null)
+                    UIManager.Instance.ShowObstacleWarning("Река! Переключено на подземный режим.");
+                if (UIManager.Instance != null)
+                    UIManager.Instance.UpdatePipeModeButtons();
+                }
+
+                if (Input.GetMouseButtonDown(0))
+                {
+                    lineRenderer.positionCount = 0;
+                    lineRenderer.positionCount = 1;
+                    lineRenderer.SetPosition(0, worldPos);
+                }
+                else
+                {
+                    if (lineRenderer.positionCount > 0)
                     {
-                        lineRenderer.positionCount++;
-                        lineRenderer.SetPosition(lineRenderer.positionCount - 1, worldPos);
+                        Vector3 lastPos = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
+                        if (Vector3.Distance(worldPos, lastPos) > 10f)
+                        {
+                            lineRenderer.positionCount++;
+                            lineRenderer.SetPosition(lineRenderer.positionCount - 1, worldPos);
+                        }
                     }
                 }
             }
         }
-    }
 
-    if (Input.GetKeyDown(KeyCode.Space))
-        CompleteDrawing();
-}
+        if (Input.GetKeyDown(KeyCode.Space))
+            CompleteDrawing();
+    }
 
     void CheckObstacleAtPosition(Vector3 position)
     {
@@ -154,37 +200,39 @@ public class BuildManager : MonoBehaviour
         }
     }
 
-void CompleteDrawing()
-{
-    if (lineRenderer.positionCount < 2)
+    void CompleteDrawing()
     {
-        Debug.Log("Слишком короткая линия!");
-        return;
+        if (lineRenderer.positionCount < 2)
+        {
+            Debug.Log("Слишком короткая линия!");
+            return;
+        }
+
+        isDrawingMode = false;
+        isBuilding = false;
+
+        if (UIManager.Instance != null)
+            UIManager.Instance.HidePipeModeButtons();
+
+        if (RouteAnalyzer.Instance != null)
+            RouteAnalyzer.Instance.Analyze(lineRenderer);
+
+        if (PipeBuilder.Instance != null)
+        {
+            PipeBuilder.Instance.BuildPipelineFromLine(lineRenderer);
+            Debug.Log("3D трубы построены!");
+            CreateFinalConnectionPoints();
+        }
+        else
+        {
+            Debug.LogError("PipeBuilder.Instance не найден!");
+        }
+
+        if (CameraController.Instance != null)
+            CameraController.Instance.FlyAlongPipe(lineRenderer);
+
+        Debug.Log("Маршрут газопровода утвержден!");
     }
-
-    isDrawingMode = false;
-    isBuilding = false;
-
-    // Анализируем маршрут
-    if (RouteAnalyzer.Instance != null)
-        RouteAnalyzer.Instance.Analyze(lineRenderer);
-
-    if (PipeBuilder.Instance != null)
-    {
-        PipeBuilder.Instance.BuildPipelineFromLine(lineRenderer);
-        Debug.Log("3D трубы построены!");
-        CreateFinalConnectionPoints();
-    }
-    else
-    {
-        Debug.LogError("PipeBuilder.Instance не найден!");
-    }
-
-    if (CameraController.Instance != null)
-        CameraController.Instance.FlyAlongPipe(lineRenderer);
-
-    Debug.Log("Маршрут газопровода утвержден!");
-}
 
     void CreateFinalConnectionPoints()
     {

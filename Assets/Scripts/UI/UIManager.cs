@@ -17,6 +17,11 @@ public class UIManager : MonoBehaviour
     public Button buttonStartMission;
     public Button buttonLaunchPowerPlant;
     public Button buttonGasMissionOk;
+
+    [Header("Кнопки режима трубы")]
+    public GameObject pipeModePanel;
+    public Button buttonOverground;
+    public Button buttonUnderground;
     
     [Header("Тексты")]
     public TextMeshProUGUI warningText;
@@ -51,14 +56,66 @@ public class UIManager : MonoBehaviour
                         BuildManager.Instance.StartDrawingMode();
             });
 
+        if (buttonOverground != null)
+            buttonOverground.onClick.AddListener(() =>
+            {
+                if (BuildManager.Instance != null)
+                    BuildManager.Instance.SetPipeMode(BuildManager.PipeMode.Overground);
+                UpdatePipeModeButtons();
+            });
+
+        if (buttonUnderground != null)
+            buttonUnderground.onClick.AddListener(() =>
+            {
+                if (BuildManager.Instance != null)
+                    BuildManager.Instance.SetPipeMode(BuildManager.PipeMode.Underground);
+                UpdatePipeModeButtons();
+            });
+
         panelStartScreen.SetActive(false);
         panelSuccess.SetActive(false);
         panelObstacleWarning.SetActive(false);
         if (gasMissionPopup != null)
             gasMissionPopup.SetActive(false);
+        if (pipeModePanel != null)
+            pipeModePanel.SetActive(false);
 
         if (CameraController.Instance != null)
             CameraController.Instance.StartIntro();
+    }
+
+    public void ShowPipeModeButtons()
+    {
+        if (pipeModePanel != null)
+            pipeModePanel.SetActive(true);
+        UpdatePipeModeButtons();
+    }
+
+    public void HidePipeModeButtons()
+    {
+        if (pipeModePanel != null)
+            pipeModePanel.SetActive(false);
+    }
+
+    public void UpdatePipeModeButtons()
+    {
+        if (BuildManager.Instance == null) return;
+
+        bool isOverground = BuildManager.Instance.currentPipeMode == BuildManager.PipeMode.Overground;
+
+        if (buttonOverground != null)
+        {
+            Image img = buttonOverground.GetComponent<Image>();
+            if (img != null)
+                img.color = isOverground ? new Color(0.1f, 0.5f, 0.9f) : new Color(0.4f, 0.4f, 0.4f);
+        }
+
+        if (buttonUnderground != null)
+        {
+            Image img = buttonUnderground.GetComponent<Image>();
+            if (img != null)
+                img.color = !isOverground ? new Color(0.1f, 0.5f, 0.9f) : new Color(0.4f, 0.4f, 0.4f);
+        }
     }
 
     public void ShowGasMissionPopup()
