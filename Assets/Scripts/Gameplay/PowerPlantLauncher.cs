@@ -35,6 +35,17 @@ public class PowerPlantLauncher : MonoBehaviour
             yield break;
         }
 
+        // новое
+         if (CameraController.Instance != null)
+        {
+        Debug.Log("📷 Камера начинает движение к ТЭЦ");
+        CameraController.Instance.MoveToTec();
+        }
+        else
+        {
+        Debug.LogWarning("CameraController.Instance не найден!");
+        }
+
         // 1. Свечение здания
         StartCoroutine(GlowBuilding(powerPlant));
 

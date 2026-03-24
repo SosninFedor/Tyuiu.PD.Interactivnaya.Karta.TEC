@@ -151,7 +151,13 @@ public class UIManager : MonoBehaviour
     void OnStartMissionClick()
     {
         panelStartScreen.SetActive(false);
+        StartCoroutine(DelayedMoveToGas());
+    }
 
+    IEnumerator DelayedMoveToGas()
+    {
+        yield return new WaitForSeconds(2f);
+        
         if (CameraController.Instance != null)
         {
             CameraController.Instance.MoveToGasLine(() =>
