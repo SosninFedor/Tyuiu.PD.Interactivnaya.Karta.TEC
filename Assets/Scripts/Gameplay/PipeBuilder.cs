@@ -9,7 +9,7 @@ public class PipeBuilder : MonoBehaviour
     public GameObject connectorPrefab;
     
     [Header("Настройки")]
-    public float pipeRadius = 0.3f;
+    public float pipeRadius = 6f;
     public Color pipeColor = new Color(0.4f, 0.2f, 0.1f);
     
     void Awake()

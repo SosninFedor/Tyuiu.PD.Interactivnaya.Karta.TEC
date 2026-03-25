@@ -8,6 +8,7 @@ public class BuildManager : MonoBehaviour
     [Header("Префабы")]
     public GameObject powerPlantPrefab;
     public GameObject gasPipePrefab;
+    public GameObject lowPolyTecPrefab; // Реальная модель ТЭЦ — перетащи LowPolyTec сюда
 
     [Header("Настройки")]
     public LayerMask buildableLayers;
@@ -72,8 +73,8 @@ public class BuildManager : MonoBehaviour
         if (lineRenderer != null)
         {
             lineRenderer.positionCount = 0;
-            lineRenderer.startWidth = 10f;
-            lineRenderer.endWidth = 10f;
+            lineRenderer.startWidth = 15f;
+            lineRenderer.endWidth = 15f;
             lineRenderer.numCornerVertices = 5;
             lineRenderer.numCapVertices = 5;
             lineRenderer.enabled = true;
@@ -236,6 +237,7 @@ public class BuildManager : MonoBehaviour
 
     void CreateFinalConnectionPoints()
     {
+        // --- Источник газа (начало маршрута) ---
         Vector3 startPos = lineRenderer.GetPosition(0);
         GameObject finalStart = new GameObject("Final_GasSource");
         finalStart.transform.position = startPos;
@@ -258,39 +260,29 @@ public class BuildManager : MonoBehaviour
         Destroy(ball.GetComponent<Collider>());
         ball.AddComponent<RotateIndicator>();
 
+        // --- ТЭЦ (конец маршрута) ---
         Vector3 endPos = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
-        GameObject finalEnd = new GameObject("Final_PowerPlant");
-        finalEnd.transform.position = endPos;
 
-        GameObject endPlatform = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        endPlatform.transform.SetParent(finalEnd.transform);
-        endPlatform.transform.localPosition = new Vector3(0, 0.1f, 0);
-        endPlatform.transform.localScale = new Vector3(15f, 0.5f, 15f);
-        endPlatform.GetComponent<Renderer>().material.color = new Color(0.2f, 0.2f, 0.2f);
-        Destroy(endPlatform.GetComponent<Collider>());
-
-        GameObject building = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        building.transform.SetParent(finalEnd.transform);
-        building.transform.localPosition = new Vector3(0, 6f, 0);
-        building.transform.localScale = new Vector3(12f, 10f, 10f);
-        building.GetComponent<Renderer>().material.color = new Color(0.8f, 0.8f, 0.8f);
-        Destroy(building.GetComponent<Collider>());
-
-        GameObject chimney = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        chimney.transform.SetParent(finalEnd.transform);
-        chimney.transform.localPosition = new Vector3(3f, 12f, 1f);
-        chimney.transform.localScale = new Vector3(1.5f, 8f, 1.5f);
-        chimney.GetComponent<Renderer>().material.color = new Color(0.4f, 0.4f, 0.4f);
-        Destroy(chimney.GetComponent<Collider>());
-
-        GameObject chimney2 = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        chimney2.transform.SetParent(finalEnd.transform);
-        chimney2.transform.localPosition = new Vector3(-3f, 12f, 1f);
-        chimney2.transform.localScale = new Vector3(1.5f, 8f, 1.5f);
-        chimney2.GetComponent<Renderer>().material.color = new Color(0.4f, 0.4f, 0.4f);
-        Destroy(chimney2.GetComponent<Collider>());
-
-        Debug.Log("Газопровод подключен к ТЭЦ!");
+        if (lowPolyTecPrefab != null)
+        {
+            // Спауним реальную модель ТЭЦ на конечной точке маршрута
+            // Y берём из самого префаба (0.3), поэтому ставим endPos.y = 0
+            Vector3 spawnPos = new Vector3(endPos.x, 0f, endPos.z);
+            GameObject tec = Instantiate(lowPolyTecPrefab, spawnPos, lowPolyTecPrefab.transform.rotation);
+            tec.name = "Final_PowerPlant";
+            Debug.Log("Газопровод подключен к ТЭЦ (LowPolyTec)!");
+        }
+        else
+        {
+            // Фоллбэк — простой куб, если префаб не назначен
+            Debug.LogWarning("lowPolyTecPrefab не назначен! Используется заглушка.");
+            GameObject fallback = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            fallback.name = "Final_PowerPlant_Fallback";
+            fallback.transform.position = new Vector3(endPos.x, 5f, endPos.z);
+            fallback.transform.localScale = new Vector3(15f, 10f, 10f);
+            fallback.GetComponent<Renderer>().material.color = new Color(0.6f, 0.6f, 0.6f);
+            Destroy(fallback.GetComponent<Collider>());
+        }
     }
 
     void ShowSuccess()
