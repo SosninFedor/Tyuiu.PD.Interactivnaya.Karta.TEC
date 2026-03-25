@@ -12,6 +12,9 @@ public class CameraController : MonoBehaviour
     private Vector3 posTopView = new Vector3(1260.338f, 2004.193f, 1961.617f);
     private Vector3 rotTopView = new Vector3(78.312f, 359.654f, 0f);
 
+    private Vector3 posTecView = new Vector3(937.8f, 244.9f, 3002.4f);   // новое перемещение к ТЭЦ 24.03 Федя
+    private Vector3 rotTecView = new Vector3(19.723f, 341.346f, 1.322f);   
+
     [Header("Настройки")]
     public float moveDuration = 2.5f;
 
@@ -53,6 +56,14 @@ public class CameraController : MonoBehaviour
     public void MoveToCityView(System.Action onComplete = null)
     {
         StartCoroutine(MoveTo(posCityView, rotCityView, moveDuration, onComplete));
+    }
+
+
+    // Метод чтобы камера перемещалась к ТЭЦ после прокладки маршрута 24 03 ф
+
+    public void MoveToTec(System.Action onComplete = null)                      
+    {
+    StartCoroutine(MoveTo(posTecView, rotTecView, moveDuration = 4f, onComplete));
     }
 
     public void FlyAlongPipe(LineRenderer lineRenderer)
