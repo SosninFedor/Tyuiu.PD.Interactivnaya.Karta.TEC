@@ -12,12 +12,15 @@ public class UIManager : MonoBehaviour
     public GameObject panelSuccess;
     public GameObject panelObstacleWarning;
     public GameObject gasMissionPopup;
-
+    
+    [Header("Панели ошибок")]
+    public GameObject panelRouteError; // Ваша готовая панель с фотографией
+    
     [Header("Кнопки")]
     public Button buttonStartMission;
     public Button buttonLaunchPowerPlant;
     public Button buttonGasMissionOk;
-
+    
     [Header("Кнопки режима трубы")]
     public GameObject pipeModePanel;
     public Button buttonOverground;
@@ -38,7 +41,7 @@ public class UIManager : MonoBehaviour
     {
         buttonStartMission.onClick.AddListener(OnStartMissionClick);
         buttonLaunchPowerPlant.onClick.AddListener(OnLaunchPowerPlantClick);
-
+        
         if (buttonGasMissionOk != null)
             buttonGasMissionOk.onClick.AddListener(() =>
             {
@@ -55,7 +58,7 @@ public class UIManager : MonoBehaviour
                     if (BuildManager.Instance != null)
                         BuildManager.Instance.StartDrawingMode();
             });
-
+        
         if (buttonOverground != null)
             buttonOverground.onClick.AddListener(() =>
             {
@@ -63,7 +66,7 @@ public class UIManager : MonoBehaviour
                     BuildManager.Instance.SetPipeMode(BuildManager.PipeMode.Overground);
                 UpdatePipeModeButtons();
             });
-
+        
         if (buttonUnderground != null)
             buttonUnderground.onClick.AddListener(() =>
             {
@@ -71,7 +74,8 @@ public class UIManager : MonoBehaviour
                     BuildManager.Instance.SetPipeMode(BuildManager.PipeMode.Underground);
                 UpdatePipeModeButtons();
             });
-
+        
+        // Инициализация панелей
         panelStartScreen.SetActive(false);
         panelSuccess.SetActive(false);
         panelObstacleWarning.SetActive(false);
@@ -79,37 +83,221 @@ public class UIManager : MonoBehaviour
             gasMissionPopup.SetActive(false);
         if (pipeModePanel != null)
             pipeModePanel.SetActive(false);
-
+        
+        // ВАЖНО: Изначально панель ошибки должна быть скрыта
+        if (panelRouteError != null)
+            panelRouteError.SetActive(false);
+        
         if (CameraController.Instance != null)
             CameraController.Instance.StartIntro();
     }
-
+    
+    // НОВЫЙ МЕТОД ДЛЯ ПОКАЗА УСПЕХА МАРШРУТА
+    public void ShowRouteSuccess()
+    {
+        // Используем существующую панель успеха или создаем новую
+        if (panelSuccess != null)
+        {
+            // Можно изменить текст в панели успеха, если нужно
+            TextMeshProUGUI successText = panelSuccess.GetComponentInChildren<TextMeshProUGUI>();
+            if (successText != null)
+            {
+                successText.text = "✓ МАРШРУТ УСПЕШНО ПОСТРОЕН! ✓\n\nГазопровод успешно подключен от источника газа к ТЭЦ.\n\nНажмите кнопку для запуска электростанции!";
+            }
+            
+            panelSuccess.SetActive(true);
+            StartCoroutine(AnimateSuccessPanel());
+            
+            // Звук успеха (если есть)
+           // if (AudioManager.Instance != null)
+                // nager.Instance.PlaySuccessSound();
+        }
+        else
+        {
+            Debug.LogWarning("PanelSuccess не назначен! Использую ShowObstacleWarning");
+            ShowObstacleWarning("✓ МАРШРУТ УСПЕШНО ПОСТРОЕН! ✓\n\nГазопровод успешно подключен от источника газа к ТЭЦ.");
+        }
+        
+        Debug.Log("Маршрут успешно проложен!");
+    }
+    
+    // МЕТОД ДЛЯ ПОКАЗА ОШИБКИ МАРШРУТА
+    public void ShowRouteError(string errorMessage)
+    {
+        if (panelRouteError == null)
+        {
+            Debug.LogError("PanelRouteError не назначен в UIManager!");
+            ShowObstacleWarning(errorMessage);
+            return;
+        }
+        
+        // Ищем текстовые поля в панели
+        TextMeshProUGUI errorTitle = panelRouteError.transform.Find("ErrorTitle")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI errorMessageText = panelRouteError.transform.Find("ErrorMessage")?.GetComponent<TextMeshProUGUI>();
+        
+        // Если нет TextMeshPro, ищем обычный Text
+        if (errorTitle == null)
+        {
+            Text titleText = panelRouteError.transform.Find("ErrorTitle")?.GetComponent<Text>();
+            if (titleText != null)
+                titleText.text = GetTitleForError(errorMessage);
+        }
+        else
+        {
+            errorTitle.text = GetTitleForError(errorMessage);
+        }
+        
+        // Устанавливаем текст ошибки
+        if (errorMessageText != null)
+        {
+            errorMessageText.text = errorMessage;
+        }
+        else
+        {
+            Text msgText = panelRouteError.transform.Find("ErrorMessage")?.GetComponent<Text>();
+            if (msgText != null)
+                msgText.text = errorMessage;
+        }
+        
+        // Находим кнопку "ИСПРАВИТЬ ОШИБКУ"
+        Button okButton = panelRouteError.transform.Find("OkButton")?.GetComponent<Button>();
+        if (okButton == null)
+        {
+            // Ищем любую кнопку в панели
+            okButton = panelRouteError.GetComponentInChildren<Button>();
+        }
+        
+        if (okButton != null)
+        {
+            // Удаляем старые обработчики
+            okButton.onClick.RemoveAllListeners();
+            // Добавляем новый
+            okButton.onClick.AddListener(() => {
+                CloseRouteError();
+            });
+        }
+        
+        // Показываем панель
+        panelRouteError.SetActive(true);
+        
+        // Анимация появления
+        StartCoroutine(AnimateErrorPanelAppear(panelRouteError));
+        
+        // Звук ошибки (если есть)
+       // if (AudioManager.Instance != null)
+          //  AudioManager.Instance.PlayErrorSound();
+        
+        Debug.LogError($"Ошибка маршрута: {errorMessage}");
+    }
+    
+    // Выбор заголовка в зависимости от ошибки
+    string GetTitleForError(string errorMessage)
+    {
+        if (errorMessage.Contains("ПРОЕКТ НЕ УТВЕРЖДЁН") || errorMessage.Contains("санитарной зоне"))
+        {
+            return "ПРОЕКТ НЕ УТВЕРЖДЁН!";
+        }
+        else if (errorMessage.Contains("начал") || errorMessage.Contains("конц"))
+        {
+            return "ОШИБКА МАРШРУТА!";
+        }
+        else if (errorMessage.Contains("превышен"))
+        {
+            return "БЮДЖЕТ ПРЕВЫШЕН!";
+        }
+        else if (errorMessage.Contains("река"))
+        {
+            return "ПРЕПЯТСТВИЕ!";
+        }
+        else
+        {
+            return "ВНИМАНИЕ! ОШИБКА!";
+        }
+    }
+    
+    // Анимация появления панели ошибки
+    IEnumerator AnimateErrorPanelAppear(GameObject panel)
+    {
+        if (panel == null) yield break;
+        
+        CanvasGroup cg = panel.GetComponent<CanvasGroup>();
+        if (cg == null)
+            cg = panel.AddComponent<CanvasGroup>();
+        
+        cg.alpha = 0f;
+        float t = 0f;
+        
+        while (t < 0.3f)
+        {
+            t += Time.deltaTime * 10f;
+            cg.alpha = Mathf.Lerp(0f, 1f, t);
+            yield return null;
+        }
+        
+        cg.alpha = 1f;
+    }
+    
+    // Закрытие панели ошибки
+    public void CloseRouteError()
+    {
+        if (panelRouteError != null)
+        {
+            StartCoroutine(AnimateErrorPanelDisappear());
+        }
+    }
+    
+    IEnumerator AnimateErrorPanelDisappear()
+    {
+        if (panelRouteError == null) yield break;
+        
+        CanvasGroup cg = panelRouteError.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            float t = 0f;
+            while (t < 0.2f)
+            {
+                t += Time.deltaTime * 5f;
+                cg.alpha = Mathf.Lerp(1f, 0f, t);
+                yield return null;
+            }
+        }
+        
+        panelRouteError.SetActive(false);
+        
+        // Возвращаем в режим рисования
+        if (BuildManager.Instance != null)
+        {
+            BuildManager.Instance.StartDrawingMode();
+        }
+    }
+    
+    // Остальные методы
     public void ShowPipeModeButtons()
     {
         if (pipeModePanel != null)
             pipeModePanel.SetActive(true);
         UpdatePipeModeButtons();
     }
-
+    
     public void HidePipeModeButtons()
     {
         if (pipeModePanel != null)
             pipeModePanel.SetActive(false);
     }
-
+    
     public void UpdatePipeModeButtons()
     {
         if (BuildManager.Instance == null) return;
-
+        
         bool isOverground = BuildManager.Instance.currentPipeMode == BuildManager.PipeMode.Overground;
-
+        
         if (buttonOverground != null)
         {
             Image img = buttonOverground.GetComponent<Image>();
             if (img != null)
                 img.color = isOverground ? new Color(0.1f, 0.5f, 0.9f) : new Color(0.4f, 0.4f, 0.4f);
         }
-
+        
         if (buttonUnderground != null)
         {
             Image img = buttonUnderground.GetComponent<Image>();
@@ -117,20 +305,20 @@ public class UIManager : MonoBehaviour
                 img.color = !isOverground ? new Color(0.1f, 0.5f, 0.9f) : new Color(0.4f, 0.4f, 0.4f);
         }
     }
-
+    
     public void ShowGasMissionPopup()
     {
         if (gasMissionPopup != null)
             StartCoroutine(AnimatePopup(gasMissionPopup));
     }
-
+    
     IEnumerator AnimatePopup(GameObject popup)
     {
         popup.SetActive(true);
         CanvasGroup cg = popup.GetComponent<CanvasGroup>();
         if (cg == null) cg = popup.AddComponent<CanvasGroup>();
         cg.alpha = 0f;
-
+        
         float t = 0f;
         while (t < 1f)
         {
@@ -153,7 +341,7 @@ public class UIManager : MonoBehaviour
         panelStartScreen.SetActive(false);
         StartCoroutine(DelayedMoveToGas());
     }
-
+    
     IEnumerator DelayedMoveToGas()
     {
         yield return new WaitForSeconds(2f);
@@ -198,12 +386,12 @@ public class UIManager : MonoBehaviour
         panelSuccess.SetActive(true);
         StartCoroutine(AnimateSuccessPanel());
     }
-
+    
     IEnumerator AnimateSuccessPanel()
     {
         CanvasGroup cg = panelSuccess.GetComponent<CanvasGroup>();
         if (cg == null) cg = panelSuccess.AddComponent<CanvasGroup>();
-
+        
         cg.alpha = 0f;
         float t = 0f;
         while (t < 1f)
@@ -213,11 +401,11 @@ public class UIManager : MonoBehaviour
             yield return null;
         }
         cg.alpha = 1f;
-
+        
         if (buttonLaunchPowerPlant != null)
             StartCoroutine(PulseButton(buttonLaunchPowerPlant));
     }
-
+    
     IEnumerator PulseButton(Button btn)
     {
         Vector3 originalScale = btn.transform.localScale;

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 public class BuildManager : MonoBehaviour
 {
@@ -8,7 +9,17 @@ public class BuildManager : MonoBehaviour
     [Header("Префабы")]
     public GameObject powerPlantPrefab;
     public GameObject gasPipePrefab;
-    public GameObject lowPolyTecPrefab; // Реальная модель ТЭЦ — перетащи LowPolyTec сюда
+    public GameObject lowPolyTecPrefab;
+
+    [Header("Проверка маршрута")]
+    public Transform gasSourcePoint;
+    public Transform tecDestinationPoint;
+    public float startPointRadius = 20f;
+    public float endPointRadius = 20f;
+
+    private bool routeValidationPassed = false;
+    private Vector3? lastStartPoint;
+    private Vector3? lastEndPoint;
 
     [Header("Настройки")]
     public LayerMask buildableLayers;
@@ -28,6 +39,36 @@ public class BuildManager : MonoBehaviour
     void Awake()
     {
         Instance = this;
+    }
+
+    void Start()
+    {
+        // Отладочная проверка
+        Debug.Log("=== ПРОВЕРКА НАСТРОЕК В BUILDMANAGER ===");
+        
+        if (gasSourcePoint != null)
+        {
+            Debug.Log($"✅ Точка начала (ГАЗ): {gasSourcePoint.position}");
+            Debug.Log($"   Радиус проверки: {startPointRadius}м");
+        }
+        else
+        {
+            Debug.LogError("❌ Точка газовой трубы НЕ НАЗНАЧЕНА!");
+            Debug.LogError("   Перетащите объект GasSourcePoint в поле Gas Source Point в Inspector");
+        }
+        
+        if (tecDestinationPoint != null)
+        {
+            Debug.Log($"✅ Точка конца (ТЭЦ): {tecDestinationPoint.position}");
+            Debug.Log($"   Радиус проверки: {endPointRadius}м");
+        }
+        else
+        {
+            Debug.LogError("❌ Точка ТЭЦ НЕ НАЗНАЧЕНА!");
+            Debug.LogError("   Перетащите объект TECDestinationPoint в поле Tec Destination Point в Inspector");
+        }
+        
+        Debug.Log("=== КОНЕЦ ПРОВЕРКИ ===");
     }
 
     void Update()
@@ -137,14 +178,14 @@ public class BuildManager : MonoBehaviour
                 Vector3 worldPos = hit.point;
                 worldPos.y = hit.point.y + 0.5f;
 
-                // Проверяем реку — принудительно подземный
                 if (hit.collider.CompareTag("River") && currentPipeMode == PipeMode.Overground)
                 {
                     SetPipeMode(PipeMode.Underground);
-                if (UIManager.Instance != null)
-                    UIManager.Instance.ShowObstacleWarning("Река! Переключено на подземный режим.");
-                if (UIManager.Instance != null)
-                    UIManager.Instance.UpdatePipeModeButtons();
+                    if (UIManager.Instance != null)
+                    {
+                        UIManager.Instance.ShowObstacleWarning("Река! Переключено на подземный режим.");
+                        UIManager.Instance.UpdatePipeModeButtons();
+                    }
                 }
 
                 if (Input.GetMouseButtonDown(0))
@@ -206,14 +247,54 @@ public class BuildManager : MonoBehaviour
         if (lineRenderer.positionCount < 2)
         {
             Debug.Log("Слишком короткая линия!");
+            if (UIManager.Instance != null)
+                UIManager.Instance.ShowObstacleWarning("Маршрут слишком короткий! Нужно провести линию минимум из 2 точек.");
             return;
         }
 
+        Vector3 startPos = lineRenderer.GetPosition(0);
+        Vector3 endPos = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
+        
+        Debug.Log($"=== ПРОВЕРКА МАРШРУТА ===");
+        Debug.Log($"Начало маршрута: {startPos}");
+        Debug.Log($"Конец маршрута: {endPos}");
+        
+        bool startValid = IsPointNearGasSource(startPos);
+        bool endValid = IsPointNearTecDestination(endPos);
+        
+        Debug.Log($"Начало у газовой трубы: {startValid} (радиус {startPointRadius}м)");
+        Debug.Log($"Конец у ТЭЦ: {endValid} (радиус {endPointRadius}м)");
+        
+        if (!startValid && !endValid)
+        {
+            if (UIManager.Instance != null)
+                UIManager.Instance.ShowRouteError("ОШИБКА МАРШРУТА!\n\nМаршрут должен начинаться у газовой трубы и заканчиваться у ТЭЦ!\n\nНачало: ❌ Не у газовой трубы\nКонец: ❌ Не у ТЭЦ");
+            return;
+        }
+        else if (!startValid)
+        {
+            if (UIManager.Instance != null)
+                UIManager.Instance.ShowRouteError("ОШИБКА МАРШРУТА!\n\nМаршрут должен начинаться у газовой трубы!\n\nНачальная точка не совпадает с источником газа!");
+            return;
+        }
+        else if (!endValid)
+        {
+            if (UIManager.Instance != null)
+                UIManager.Instance.ShowRouteError("ОШИБКА МАРШРУТА!\n\nМаршрут должен заканчиваться у ТЭЦ!\n\nКонечная точка не совпадает с ТЭЦ!");
+            return;
+        }
+
+        Debug.Log("✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ! Маршрут правильный.");
+        
+        routeValidationPassed = true;
         isDrawingMode = false;
         isBuilding = false;
 
         if (UIManager.Instance != null)
+        {
             UIManager.Instance.HidePipeModeButtons();
+            UIManager.Instance.ShowRouteSuccess();
+        }
 
         if (RouteAnalyzer.Instance != null)
             RouteAnalyzer.Instance.Analyze(lineRenderer);
@@ -233,11 +314,111 @@ public class BuildManager : MonoBehaviour
             CameraController.Instance.FlyAlongPipe(lineRenderer);
 
         Debug.Log("Маршрут газопровода утвержден!");
+
+        lastStartPoint = startPos;
+        lastEndPoint = endPos;
+    }
+
+    // МЕТОДЫ ПРОВЕРКИ (ДОЛЖНЫ БЫТЬ ВНУТРИ КЛАССА BuildManager)
+    bool IsPointNearGasSource(Vector3 point)
+    {
+        if (gasSourcePoint == null)
+        {
+            Debug.LogWarning("Gas Source Point не назначен в BuildManager!");
+            GameObject gasSource = GameObject.FindGameObjectWithTag("GasSource");
+            if (gasSource != null)
+            {
+                float distance = Vector3.Distance(point, gasSource.transform.position);
+                return distance <= startPointRadius;
+            }
+            return false;
+        }
+
+        float dist = Vector3.Distance(point, gasSourcePoint.position);
+        bool isValid = dist <= startPointRadius;
+
+        if (!isValid)
+            Debug.Log($"Точка начала слишком далеко от источника газа: {dist:F1}м (макс: {startPointRadius}м)");
+
+        return isValid;
+    }
+
+    bool IsPointNearTecDestination(Vector3 point)
+    {
+        if (tecDestinationPoint == null)
+        {
+            Debug.LogWarning("TEC Destination Point не назначен в BuildManager!");
+            GameObject tec = GameObject.FindGameObjectWithTag("TEC");
+            if (tec != null)
+            {
+                float distance = Vector3.Distance(point, tec.transform.position);
+                return distance <= endPointRadius;
+            }
+            return false;
+        }
+
+        float dist = Vector3.Distance(point, tecDestinationPoint.position);
+        bool isValid = dist <= endPointRadius;
+
+        if (!isValid)
+            Debug.Log($"Точка конца слишком далеко от ТЭЦ: {dist:F1}м (макс: {endPointRadius}м)");
+
+        return isValid;
+    }
+
+    void OnDrawGizmos()
+    {
+        if (gasSourcePoint != null)
+        {
+            Gizmos.color = new Color(0, 1, 1, 0.3f);
+            Gizmos.DrawSphere(gasSourcePoint.position, startPointRadius);
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(gasSourcePoint.position, startPointRadius);
+            
+            #if UNITY_EDITOR
+            UnityEditor.Handles.Label(gasSourcePoint.position + Vector3.up * 3f, "ГАЗОВАЯ ТРУБА (НАЧАЛО)");
+            #endif
+        }
+        
+        if (tecDestinationPoint != null)
+        {
+            Gizmos.color = new Color(1, 0, 0, 0.3f);
+            Gizmos.DrawSphere(tecDestinationPoint.position, endPointRadius);
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(tecDestinationPoint.position, endPointRadius);
+            
+            #if UNITY_EDITOR
+            UnityEditor.Handles.Label(tecDestinationPoint.position + Vector3.up * 3f, "ТЭЦ (КОНЕЦ)");
+            #endif
+        }
+    }
+
+    public void ShowRoutePointsHint()
+    {
+        if (UIManager.Instance != null)
+        {
+            string hint = "🔵 СИНЯЯ СФЕРА: Начало маршрута (Источник газа)\n\n🔴 КРАСНАЯ СФЕРА: Конец маршрута (ТЭЦ)\n\nПроведите линию от синей сферы к красной!";
+            UIManager.Instance.ShowObstacleWarning(hint);
+        }
+    }
+
+    public bool IsRouteValid()
+    {
+        return routeValidationPassed;
+    }
+
+    public Vector3? GetLastStartPoint()
+    {
+        return lastStartPoint;
+    }
+
+    public Vector3? GetLastEndPoint()
+    {
+        return lastEndPoint;
     }
 
     void CreateFinalConnectionPoints()
     {
-        // --- Источник газа (начало маршрута) ---
         Vector3 startPos = lineRenderer.GetPosition(0);
         GameObject finalStart = new GameObject("Final_GasSource");
         finalStart.transform.position = startPos;
@@ -260,13 +441,10 @@ public class BuildManager : MonoBehaviour
         Destroy(ball.GetComponent<Collider>());
         ball.AddComponent<RotateIndicator>();
 
-        // --- ТЭЦ (конец маршрута) ---
         Vector3 endPos = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
 
         if (lowPolyTecPrefab != null)
         {
-            // Спауним реальную модель ТЭЦ на конечной точке маршрута
-            // Y берём из самого префаба (0.3), поэтому ставим endPos.y = 0
             Vector3 spawnPos = new Vector3(endPos.x, 0f, endPos.z);
             GameObject tec = Instantiate(lowPolyTecPrefab, spawnPos, lowPolyTecPrefab.transform.rotation);
             tec.name = "Final_PowerPlant";
@@ -274,7 +452,6 @@ public class BuildManager : MonoBehaviour
         }
         else
         {
-            // Фоллбэк — простой куб, если префаб не назначен
             Debug.LogWarning("lowPolyTecPrefab не назначен! Используется заглушка.");
             GameObject fallback = GameObject.CreatePrimitive(PrimitiveType.Cube);
             fallback.name = "Final_PowerPlant_Fallback";
@@ -325,6 +502,64 @@ public class BuildManager : MonoBehaviour
             Debug.Log("Здесь нельзя строить!");
             if (TooltipManager.Instance != null)
                 TooltipManager.Instance.ShowTooltip("Невозможно построить здесь!");
+        }
+    }
+
+    [ContextMenu("Auto Create Route Points")]
+    void AutoCreateRoutePoints()
+    {
+        GameObject gasPipe = GameObject.FindGameObjectWithTag("GasPipe");
+        if (gasPipe == null)
+            gasPipe = GameObject.Find("GasPipe") ?? GameObject.Find("GasSource");
+        
+        if (gasPipe != null)
+        {
+            if (gasSourcePoint == null)
+            {
+                GameObject sourcePoint = new GameObject("GasSourcePoint");
+                sourcePoint.transform.position = gasPipe.transform.position;
+                sourcePoint.transform.position += Vector3.up * 0.5f;
+                
+                GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                marker.transform.SetParent(sourcePoint.transform);
+                marker.transform.localScale = Vector3.one * 2f;
+                marker.GetComponent<Renderer>().material.color = Color.cyan;
+                Destroy(marker.GetComponent<Collider>());
+                
+                gasSourcePoint = sourcePoint.transform;
+                Debug.Log($"Создана точка газовой трубы на позиции: {gasSourcePoint.position}");
+            }
+        }
+        else
+        {
+            Debug.LogError("Не найдена газовая труба!");
+        }
+        
+        GameObject tec = GameObject.FindGameObjectWithTag("TEC");
+        if (tec == null)
+            tec = GameObject.Find("TEC") ?? GameObject.Find("PowerPlant");
+        
+        if (tec != null)
+        {
+            if (tecDestinationPoint == null)
+            {
+                GameObject destPoint = new GameObject("TECDestinationPoint");
+                destPoint.transform.position = tec.transform.position;
+                destPoint.transform.position += Vector3.up * 0.5f;
+                
+                GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                marker.transform.SetParent(destPoint.transform);
+                marker.transform.localScale = Vector3.one * 2f;
+                marker.GetComponent<Renderer>().material.color = Color.red;
+                Destroy(marker.GetComponent<Collider>());
+                
+                tecDestinationPoint = destPoint.transform;
+                Debug.Log($"Создана точка ТЭЦ на позиции: {tecDestinationPoint.position}");
+            }
+        }
+        else
+        {
+            Debug.LogError("Не найдена ТЭЦ!");
         }
     }
 
