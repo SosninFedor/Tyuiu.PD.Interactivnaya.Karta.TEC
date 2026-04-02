@@ -9,11 +9,11 @@ public class CameraController : MonoBehaviour
     private Vector3 rotCityView = new Vector3(22.6f, 30.8f, 0f);
     private Vector3 posGasView = new Vector3(1661.495f, 262.9132f, 1885.103f);
     private Vector3 rotGasView = new Vector3(18.667f, 49.847f, 0f);
-    private Vector3 posTopView = new Vector3(1260.338f, 2004.193f, 1961.617f);
-    private Vector3 rotTopView = new Vector3(78.312f, 359.654f, 0f);
+    private Vector3 posTopView = new Vector3(1494,1065,2220);
+    private Vector3 rotTopView = new Vector3(60.657f, 359.857f, 0.214f);
 
-    private Vector3 posTecView = new Vector3(937.8f, 244.9f, 3002.4f);   // новое перемещение к ТЭЦ 24.03 Федя
-    private Vector3 rotTecView = new Vector3(19.723f, 341.346f, 1.322f);   
+    private Vector3 posTecView = new Vector3(588, 244.9f, 2732);   // новое перемещение к ТЭЦ 24.03 Федя
+    private Vector3 rotTecView = new Vector3(19.723f, 326.295f, 1.322f);   
 
     [Header("Настройки")]
     public float moveDuration = 2.5f;

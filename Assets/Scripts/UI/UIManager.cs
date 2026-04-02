@@ -12,6 +12,13 @@ public class UIManager : MonoBehaviour
     public GameObject panelSuccess;
     public GameObject panelObstacleWarning;
     public GameObject gasMissionPopup;
+    [Header("⭐ НОВЫЕ УЛУЧШЕНИЯ ⭐")]
+public TextMeshProUGUI routeLengthText;        // Текст длины маршрута
+public TextMeshProUGUI distanceToTargetText;   // Текст расстояния до ТЭЦ
+public Slider progressSlider;                  // Прогресс-бар
+public GameObject hintPanel;                   // Панель для подсказок
+public TextMeshProUGUI hintText;               // Текст подсказки
+public TextMeshProUGUI successStatsText;
     
     [Header("Панели ошибок")]
     public GameObject panelRouteError; // Ваша готовая панель с фотографией
@@ -120,6 +127,60 @@ public class UIManager : MonoBehaviour
         
         Debug.Log("Маршрут успешно проложен!");
     }
+
+    public void ShowRouteSuccessWithStats(float length, float straightDistance, float efficiency)
+{
+    string efficiencyText = efficiency > 90f ? "⭐ Отлично!" : 
+                           efficiency > 70f ? "👍 Хорошо" : 
+                           efficiency > 50f ? "📐 Можно лучше" : "⚠️ Неэффективно";
+    
+    if (successStatsText != null)
+    {
+        successStatsText.text = $"✅ МАРШРУТ ПОСТРОЕН!\n\n" +
+                                $"📏 Длина: {length:F0}м\n" +
+                                $"📐 По прямой: {straightDistance:F0}м\n" +
+                                $"💯 Эффективность: {efficiency:F0}%\n" +
+                                $"🏆 Оценка: {efficiencyText}";
+    }
+    
+    if (panelSuccess != null)
+        panelSuccess.SetActive(true);
+}
+
+// ✅ Метод для показа временной подсказки
+public void ShowHint(string message, float duration)
+{
+    if (hintPanel != null && hintText != null)
+    {
+        hintText.text = message;
+        hintPanel.SetActive(true);
+        StartCoroutine(HideHintAfterDelay(duration));
+    }
+}
+
+IEnumerator HideHintAfterDelay(float delay)
+{
+    yield return new WaitForSeconds(delay);
+    if (hintPanel != null)
+        hintPanel.SetActive(false);
+}
+
+    public void UpdateRouteStats(float currentLength, float distanceToTarget)
+{
+    if (routeLengthText != null)
+        routeLengthText.text = $"📏 Длина: {currentLength:F0}м";
+    
+    if (distanceToTargetText != null)
+        distanceToTargetText.text = $"🎯 До ТЭЦ: {distanceToTarget:F0}м";
+    
+    if (progressSlider != null && BuildManager.Instance != null && BuildManager.Instance.tecDestinationPoint != null)
+    {
+        float totalDistance = Vector3.Distance(
+            BuildManager.Instance.gasSourcePoint.position,
+            BuildManager.Instance.tecDestinationPoint.position);
+        progressSlider.value = Mathf.Clamp01(1f - (distanceToTarget / totalDistance));
+    }
+}
     
     // МЕТОД ДЛЯ ПОКАЗА ОШИБКИ МАРШРУТА
     public void ShowRouteError(string errorMessage)
