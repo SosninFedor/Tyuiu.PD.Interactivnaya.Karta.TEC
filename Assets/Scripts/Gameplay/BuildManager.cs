@@ -122,10 +122,10 @@ public class BuildManager : MonoBehaviour
             UpdateLineStyle();
         }
 
-        if (UIManager.Instance != null)
-            UIManager.Instance.ShowPipeModeButtons();
+        // if (UIManager.Instance != null)
+            //UIManager.Instance.ShowPipeModeButtons();
 
-        Debug.Log("РЕЖИМ РИСОВАНИЯ: Нажмите ЛКМ чтобы рисовать, ПРОБЕЛ для завершения");
+       // Debug.Log("РЕЖИМ РИСОВАНИЯ: Нажмите ЛКМ чтобы рисовать, ПРОБЕЛ для завершения");
     }
 
     public void SetPipeMode(PipeMode mode)

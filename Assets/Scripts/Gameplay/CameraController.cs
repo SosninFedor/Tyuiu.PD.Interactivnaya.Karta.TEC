@@ -11,9 +11,8 @@ public class CameraController : MonoBehaviour
     private Vector3 rotGasView = new Vector3(18.667f, 49.847f, 0f);
     private Vector3 posTopView = new Vector3(1494,1065,2220);
     private Vector3 rotTopView = new Vector3(60.657f, 359.857f, 0.214f);
-
-    private Vector3 posTecView = new Vector3(588, 244.9f, 2732);   // новое перемещение к ТЭЦ 24.03 Федя
-    private Vector3 rotTecView = new Vector3(19.723f, 326.295f, 1.322f);   
+    private Vector3 posTecView = new Vector3(588, 244.9f, 2732);
+    private Vector3 rotTecView = new Vector3(19.723f, 326.295f, 1.322f);
 
     [Header("Настройки")]
     public float moveDuration = 2.5f;
@@ -32,25 +31,19 @@ public class CameraController : MonoBehaviour
     {
         transform.position = posCityView;
         transform.rotation = Quaternion.Euler(rotCityView);
-
-        // Задержку убрали — меню появляется сразу
-        // yield return new WaitForSeconds(3f);
-
         if (UIManager.Instance != null)
             UIManager.Instance.ShowStartScreen();
-        
         yield return null;
     }
 
-
     public void MoveToTopView(System.Action onComplete = null)
     {
-    StartCoroutine(MoveTo(posTopView, rotTopView, 2f, onComplete));
+        StartCoroutine(MoveTo(posTopView, rotTopView, 2f, onComplete));
     }
 
     public void MoveToGasLine(System.Action onComplete = null)
     {
-    StartCoroutine(MoveTo(posGasView, rotGasView, moveDuration, onComplete));
+        StartCoroutine(MoveTo(posGasView, rotGasView, moveDuration, onComplete));
     }
 
     public void MoveToCityView(System.Action onComplete = null)
@@ -58,12 +51,9 @@ public class CameraController : MonoBehaviour
         StartCoroutine(MoveTo(posCityView, rotCityView, moveDuration, onComplete));
     }
 
-
-    // Метод чтобы камера перемещалась к ТЭЦ после прокладки маршрута 24 03 ф
-
-    public void MoveToTec(System.Action onComplete = null)                      
+    public void MoveToTec(System.Action onComplete = null)
     {
-    StartCoroutine(MoveTo(posTecView, rotTecView, moveDuration = 4f, onComplete));
+        StartCoroutine(MoveTo(posTecView, rotTecView, 4f, onComplete));
     }
 
     public void FlyAlongPipe(LineRenderer lineRenderer)
@@ -72,32 +62,39 @@ public class CameraController : MonoBehaviour
     }
 
     IEnumerator CinematicFlight(LineRenderer lineRenderer)
-{
-    if (lineRenderer.positionCount < 2) yield break;
-
-    // Находим границы маршрута
-    Vector3 pipeStart = lineRenderer.GetPosition(0);
-    Vector3 pipeEnd = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
-    Vector3 pipeCenter = (pipeStart + pipeEnd) / 2f;
-
-    // Считаем максимальный размер маршрута по всем точкам
-    float maxDist = 0f;
-    for (int i = 0; i < lineRenderer.positionCount; i++)
     {
-        float d = Vector3.Distance(pipeCenter, lineRenderer.GetPosition(i));
-        if (d > maxDist) maxDist = d;
+        if (lineRenderer.positionCount < 2) yield break;
+
+        // Находим границы маршрута
+        Vector3 pipeStart = lineRenderer.GetPosition(0);
+        Vector3 pipeEnd = lineRenderer.GetPosition(lineRenderer.positionCount - 1);
+        Vector3 pipeCenter = (pipeStart + pipeEnd) / 2f;
+
+        // Считаем максимальный размер маршрута по всем точкам
+        float maxDist = 0f;
+        for (int i = 0; i < lineRenderer.positionCount; i++)
+        {
+            float d = Vector3.Distance(pipeCenter, lineRenderer.GetPosition(i));
+            if (d > maxDist) maxDist = d;
+        }
+
+        // Камера поднимается так чтобы весь маршрут влез в кадр
+        float height = maxDist * 2.2f;
+        Vector3 overviewPos = pipeCenter + Vector3.up * height;
+        Quaternion overviewRot = Quaternion.LookRotation(pipeCenter - overviewPos);
+
+        yield return StartCoroutine(MoveTo(overviewPos, overviewRot.eulerAngles, 2.5f));
+
+        yield return new WaitForSeconds(1.5f);
+
+        yield return StartCoroutine(MoveTo(posTecView, rotTecView, 3f));
+
+        //if (UIManager.Instance != null)
+        //{
+            //UIManager.Instance.HideSuccessPanelIfVisible(); // На случай если уже показано
+            //UIManager.Instance.ShowSuccessPanel();
+        //}
     }
-
-    // Камера поднимается так чтобы весь маршрут влез в кадр
-    float height = maxDist * 2.2f;
-    Vector3 overviewPos = pipeCenter + Vector3.up * height;
-    Quaternion overviewRot = Quaternion.LookRotation(pipeCenter - overviewPos);
-
-    yield return StartCoroutine(MoveTo(overviewPos, overviewRot.eulerAngles, 2.5f));
-
-    if (UIManager.Instance != null)
-        UIManager.Instance.ShowSuccessPanel();
-}
 
     IEnumerator MoveTo(Vector3 targetPos, Vector3 targetRot, float duration, System.Action onComplete = null)
     {
@@ -110,18 +107,13 @@ public class CameraController : MonoBehaviour
         {
             t += Time.deltaTime / duration;
             float smooth = Mathf.SmoothStep(0f, 1f, t);
-
             transform.position = Vector3.Lerp(startPos, targetPos, smooth);
             transform.rotation = Quaternion.Lerp(startRot, endRot, smooth);
-
             yield return null;
         }
 
         transform.position = targetPos;
         transform.rotation = endRot;
-
         onComplete?.Invoke();
-
     }
-    
 }

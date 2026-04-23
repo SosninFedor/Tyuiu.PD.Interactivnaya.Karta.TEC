@@ -158,6 +158,13 @@ public void ShowHint(string message, float duration)
     }
 }
 
+public void HideSuccessPanel()
+{
+    if (panelSuccess != null && panelSuccess.activeSelf)
+    {
+        panelSuccess.SetActive(false);
+    }
+}
 IEnumerator HideHintAfterDelay(float delay)
 {
     yield return new WaitForSeconds(delay);
